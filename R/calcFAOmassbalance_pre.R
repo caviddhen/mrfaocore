@@ -261,6 +261,7 @@ calcFAOmassbalance_pre <- function(version = "join2010", years = NULL) { # nolin
 
     # change prod attributes from share of dm to share of wm
     attributesWM <- prodAttributes / dimSums(prodAttributes[, , "wm"], dim = "attributes")
+
     # combine all attributes
     itemNames <- c(getNames(fb, dim = "ItemCodeItem"), getNames(sua, dim = "ItemCodeItem"))
     itemNamesAttributes <- getNames(attributesWM, dim = 2)
@@ -373,6 +374,14 @@ calcFAOmassbalance_pre <- function(version = "join2010", years = NULL) { # nolin
       sua[, , "foodFB"][, , suaCereal] <- cerRatio * fb[, , i][, , "food"]
     }
 
+   # Finally, some countries don't account for "other_util" in the FB, but do in the SUA of a 
+   # processed product, this is currently only relevant for Maize, as this is our ethanol feedstock.
+   # for example, Canada reports Maize starch into other_util in SUA,
+   # but no Maize and products into other_util in FB. So here we give the main Maize product in the SUA
+   # the total other_util from Maize and products, to maintain consistent conversion factor for ethanol
+   # production.
+
+   sua[, , "56|Maize (corn)"][, , "other_util"] <- fb[, , "2514|Maize and products"][, , "other_util"]
 
     #### Definition of subfunctions #####
 
@@ -1235,7 +1244,8 @@ calcFAOmassbalance_pre <- function(version = "join2010", years = NULL) { # nolin
       # are used only to produce glucose and fructose and we accounted for this
       # send starches other_util also to other util of the main crops
       # in sugar processing, to avoid double counting in other dimensions
-      for (i in seq_along(starches)) {
+      # we don't send maize to other_util as its used for ethanol production
+      for (i in seq_along(starches[-which(starches == "64|Starch of maize")])) {
         flowsCBC[, , list(names(starches)[[i]], "other_util")] <- (flowsCBC[, , list(names(starches)[[i]],
                                                                                      "other_util")]
                                                                    + flowsCBC[, , list(starches[[i]], "other_util")])
